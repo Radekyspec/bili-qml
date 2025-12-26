@@ -98,94 +98,87 @@ function formatCount(num) {
 }
 
 async function injectQuestionButton() {
-    const bvid = getBvid();
-    if (!bvid) return;
+    try {
+        const bvid = getBvid();
+        if (!bvid) return;
 
-    // 1. 先找到当前页面上真正显示的那个 toolbar
-    const toolbar = document.querySelector('.video-toolbar-left') || 
-                    document.querySelector('.toolbar-left') ||
-                    document.querySelector('.video-toolbar-container .left-operations') ||
-                    document.querySelector('#arc_toolbar_report .left-operations') ||
-                    document.querySelector('.ops');
+        // 1. 寻找参考位置（仅作为定位参考，不插入）
+        const toolbar = document.querySelector('.video-toolbar-left') || 
+                        document.querySelector('.toolbar-left') ||
+                        document.querySelector('.video-toolbar-container .left-operations') ||
+                        document.querySelector('#arc_toolbar_report .left-operations') ||
+                        document.querySelector('.ops');
 
-    if (!toolbar) return;
+        if (!toolbar) return;
 
-    // 2. 检查按钮是否已经在【这个】toolbar 里面了
-    const existingBtn = document.getElementById('bili-qmr-btn');
-    if (existingBtn) {
-        if (toolbar.contains(existingBtn)) {
-            // 按钮就在当前的 toolbar 里，只需要检查是否需要切换视频状态
-            if (bvid !== currentBvid) {
-                syncButtonState();
-            }
-            return;
-        } else {
-            // 按钮虽然存在，但不在当前的 toolbar 里（可能在被隐藏的旧 toolbar 里）
-            existingBtn.remove(); 
-        }
-    }
-    
-    if (isInjecting) return;
-    isInjecting = true;
-    const userId = await getUserId();
-
-    // 创建问号按钮
-    const qBtn = document.createElement('div');
-    qBtn.id = 'bili-qmr-btn';
-    qBtn.className = 'video-toolbar-left-item';
-    qBtn.innerHTML = `
-        <div class="qmr-icon-wrap">
-            <span class="qmr-icon">?</span>
-            <span class="qmr-text">...</span>
-        </div>
-    `;
-
-    // 关键修复：只要没在当前的 toolbar 里，就强制插入
-    const shareBtn = toolbar.querySelector('.share') || 
-                   toolbar.querySelector('.video-share') || 
-                   toolbar.querySelector('.video-toolbar-share');
-
-    if (shareBtn) {
-        toolbar.insertBefore(qBtn, shareBtn.nextSibling);
-    } else {
-        toolbar.prepend(qBtn); // 找不到分享按钮就塞到最前面，这样最显眼
-    }
-    
-    isInjecting = false;
-    syncButtonState();
-
-    // 点击事件
-    qBtn.addEventListener('click', async () => {
-        const activeBvid = getBvid(); 
-        const title = document.querySelector('.video-title')?.innerText || 
-                      document.querySelector('h1.video-title')?.innerText || 
-                      document.title.replace('_哔哩哔哩_bilibili', '') ||
-                      '未知视频';
+        let qBtn = document.getElementById('bili-qmr-btn');
         
-        if (!activeBvid) return;
-
-        try {
-            qBtn.style.pointerEvents = 'none';
-            const response = await fetch(`${API_BASE}/vote`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ bvid: activeBvid, title, userId })
-            });
-            const data = await response.json();
-            if (data.success) {
-                // 投票后立即重新请求最新计数和状态
-                syncButtonState();
-            }
-        } catch (error) {
-            console.error('[B站问号榜] 请求失败:', error);
-            alert('操作失败，请确保后端服务器已启动。');
-        } finally {
-            qBtn.style.pointerEvents = 'auto';
+        // 2. 如果按钮不存在，创建并挂载到 body（隔离环境）
+        if (!qBtn) {
+            if (isInjecting) return;
+            isInjecting = true;
+            
+            qBtn = document.createElement('div');
+            qBtn.id = 'bili-qmr-btn';
+            // 基础样式，确保按钮悬浮且不干扰 DOM
+            qBtn.style.cssText = `
+                position: absolute;
+                z-index: 10000;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                transition: opacity 0.3s;
+                pointer-events: auto;
+            `;
+            qBtn.innerHTML = `
+                <div class="qmr-icon-wrap">
+                    <span class="qmr-icon">?</span>
+                    <span class="qmr-text">...</span>
+                </div>
+            `;
+            document.body.appendChild(qBtn);
+            
+            const userId = await getUserId();
+            qBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const activeBvid = getBvid(); 
+                const title = document.querySelector('.video-title')?.innerText || document.title;
+                if (!activeBvid) return;
+                try {
+                    qBtn.style.pointerEvents = 'none';
+                    const response = await fetch(`${API_BASE}/vote`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bvid: activeBvid, title, userId })
+                    });
+                    if ((await response.json()).success) syncButtonState();
+                } catch (err) {} finally { qBtn.style.pointerEvents = 'auto'; }
+            };
+            isInjecting = false;
         }
-    });
+
+        // 3. 实时计算位置并覆盖（核心修复：不改变 B 站 DOM 结构）
+        const rect = toolbar.getBoundingClientRect();
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // 将按钮定位在工具栏左侧（prepend 的视觉效果）
+        qBtn.style.left = `${rect.left + scrollLeft}px`; 
+        qBtn.style.top = `${rect.top + scrollTop}px`;
+        qBtn.style.height = `${rect.height}px`;
+        
+        // 为了不遮挡原本的按钮，给 toolbar 加个 padding 或者让按钮浮在稍微偏移的位置
+        // 这里我们选择让按钮浮动，并微调位置
+        if (bvid !== currentBvid) syncButtonState();
+    } catch (e) {
+        isInjecting = false;
+    }
 }
+
+// 增加滚动和缩放监听以保持位置同步
+window.addEventListener('scroll', injectQuestionButton, { passive: true });
+window.addEventListener('resize', injectQuestionButton, { passive: true });
 
 // 防抖函数
 function debounce(fn, delay) {
