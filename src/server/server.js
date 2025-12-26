@@ -44,8 +44,8 @@ app.get('/', (req, res) => {
     res.send('<h1>B站问号榜服务器已启动 ❓</h1><p>已连接至云数据库。</p>');
 });
 
-// 处理投票（切换状态）
-app.post('/api/vote', async (req, res) => {
+// 处理投票
+app.post('/vote', async (req, res) => {
     const { bvid, title, userId } = req.body;
     if (!bvid || !userId) {
         return res.status(400).json({ success: false, message: 'Missing bvid or userId' });
@@ -73,8 +73,8 @@ app.post('/api/vote', async (req, res) => {
     res.json({ success: true, active });
 });
 
-// 获取用户对特定视频的状态及总计数
-app.get('/api/status', async (req, res) => {
+// 获取状态
+app.get('/status', async (req, res) => {
     const { bvid, userId } = req.query;
     const data = await getDB();
     
@@ -86,7 +86,7 @@ app.get('/api/status', async (req, res) => {
 });
 
 // 获取排行榜
-app.get('/api/leaderboard', async (req, res) => {
+app.get('/leaderboard', async (req, res) => {
     const range = req.query.range || 'daily';
     const data = await getDB();
     
