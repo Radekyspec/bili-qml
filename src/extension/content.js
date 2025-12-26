@@ -53,13 +53,14 @@ async function syncButtonState() {
     if (!qBtn) return;
 
     const bvid = getBvid();
-    if (!bvid || !userId) return; // 确保 userId 已准备好
+    if (!bvid) return;
 
     // 如果已经在同步该视频的状态，则跳过
     if (isSyncing) return;
     
     try {
         isSyncing = true;
+        const userId = await getUserId(); // 恢复局部获取，确保可靠
         const statusRes = await fetch(`${API_BASE}/status?bvid=${bvid}&userId=${userId}`);
         const statusData = await statusRes.json();
         
@@ -99,15 +100,7 @@ async function injectQuestionButton() {
     const bvid = getBvid();
     if (!bvid) return;
 
-    if (document.getElementById('bili-qmr-btn')) {
-        if (bvid !== currentBvid) {
-            syncButtonState();
-        }
-        return;
-    }
-    
-    if (isInjecting) return;
-    
+    // 1. 先找到当前页面上真正显示的那个 toolbar
     const toolbar = document.querySelector('.video-toolbar-left') || 
                     document.querySelector('.toolbar-left') ||
                     document.querySelector('.video-toolbar-container .left-operations') ||
@@ -116,6 +109,22 @@ async function injectQuestionButton() {
 
     if (!toolbar) return;
 
+    // 2. 检查按钮是否已经在【这个】toolbar 里面了
+    const existingBtn = document.getElementById('bili-qmr-btn');
+    if (existingBtn) {
+        if (toolbar.contains(existingBtn)) {
+            // 按钮就在当前的 toolbar 里，只需要检查是否需要切换视频状态
+            if (bvid !== currentBvid) {
+                syncButtonState();
+            }
+            return;
+        } else {
+            // 按钮虽然存在，但不在当前的 toolbar 里（可能在被隐藏的旧 toolbar 里）
+            existingBtn.remove(); 
+        }
+    }
+    
+    if (isInjecting) return;
     isInjecting = true;
     const userId = await getUserId();
 
@@ -130,12 +139,15 @@ async function injectQuestionButton() {
         </div>
     `;
 
-    // 插入到分享按钮之前或最后
-    const shareBtn = toolbar.querySelector('.share') || toolbar.querySelector('.video-share');
+    // 关键修复：只要没在当前的 toolbar 里，就强制插入
+    const shareBtn = toolbar.querySelector('.share') || 
+                   toolbar.querySelector('.video-share') || 
+                   toolbar.querySelector('.video-toolbar-share');
+
     if (shareBtn) {
         toolbar.insertBefore(qBtn, shareBtn.nextSibling);
     } else {
-        toolbar.appendChild(qBtn);
+        toolbar.prepend(qBtn); // 找不到分享按钮就塞到最前面，这样最显眼
     }
     
     isInjecting = false;
@@ -183,27 +195,57 @@ function debounce(fn, delay) {
     }
 }
 
-let userId = null;
-async function initUserId() {
-    userId = await getUserId();
+let userIdCache = null;
+async function getCachedUserId() {
+    if (userIdCache) return userIdCache;
+    userIdCache = await getUserId();
+    return userIdCache;
 }
-initUserId();
 
 const debouncedInject = debounce(injectQuestionButton, 500);
 
 // 使用 MutationObserver 监听 DOM 变化
 const observer = new MutationObserver((mutations) => {
-    // 检查是否有节点增加，避免不必要的触发
-    const hasNewNodes = mutations.some(m => m.addedNodes.length > 0);
-    if (hasNewNodes) {
-        debouncedInject();
-    }
+    // 只要有节点变动就尝试注入，debounce 会处理频率
+    debouncedInject();
 });
 
 observer.observe(document.body, {
     childList: true,
     subtree: true
 });
+
+// 监听视频状态，视频播放/暂停时都尝试注入
+function listenVideoEvents() {
+    const video = document.querySelector('video');
+    if (video) {
+        video.removeEventListener('play', injectQuestionButton);
+        video.removeEventListener('pause', injectQuestionButton);
+        video.addEventListener('play', injectQuestionButton);
+        video.addEventListener('pause', injectQuestionButton);
+    }
+}
+
+// 监听 URL 变化
+let lastUrl = location.href;
+setInterval(() => {
+    listenVideoEvents(); // 持续确保监听了视频标签
+    
+    if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        injectQuestionButton(); 
+    } else {
+        // 心跳检测：强制检查
+        const btn = document.getElementById('bili-qmr-btn');
+        const toolbar = document.querySelector('.video-toolbar-left') || 
+                        document.querySelector('.toolbar-left') ||
+                        document.querySelector('.video-toolbar-container .left-operations');
+        
+        if (toolbar && (!btn || !toolbar.contains(btn))) {
+            injectQuestionButton();
+        }
+    }
+}, 500);
 
 // 初始尝试
 injectQuestionButton();
