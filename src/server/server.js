@@ -1,35 +1,39 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
 const moment = require('moment');
 
 const app = express();
-const PORT = 3000;
-const DATA_FILE = path.join(__dirname, 'data', 'votes.json');
+const PORT = process.env.PORT || 3000;
 
-// 安全读取数据的辅助函数
-function readData() {
+// Redis 配置
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+// 辅助函数：与 Redis 交互
+async function getDB() {
     try {
-        if (!fs.existsSync(DATA_FILE)) return {};
-        const content = fs.readFileSync(DATA_FILE, 'utf8');
-        if (!content || content.trim() === '') return {};
-        return JSON.parse(content);
+        const res = await fetch(`${REDIS_URL}/get/votes`, {
+            headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+        });
+        const data = await res.json();
+        return data.result ? JSON.parse(data.result) : {};
     } catch (e) {
-        console.error('读取数据失败，初始化为空对象', e);
+        console.error('Redis 读取失败', e);
         return {};
     }
 }
 
-// 确保数据目录存在
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-    fs.mkdirSync(path.join(__dirname, 'data'));
-}
-
-// 初始化数据文件
-if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({}));
+async function setDB(data) {
+    try {
+        await fetch(`${REDIS_URL}/set/votes`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+            body: JSON.stringify(JSON.stringify(data))
+        });
+    } catch (e) {
+        console.error('Redis 写入失败', e);
+    }
 }
 
 app.use(cors());
@@ -37,17 +41,17 @@ app.use(bodyParser.json());
 
 // 根路径欢迎页
 app.get('/', (req, res) => {
-    res.send('<h1>B站问号榜服务器已启动 ❓</h1><p>这是一个 API 服务器，请通过插件进行交互。</p>');
+    res.send('<h1>B站问号榜服务器已启动 ❓</h1><p>已连接至云数据库。</p>');
 });
 
 // 处理投票（切换状态）
-app.post('/api/vote', (req, res) => {
+app.post('/api/vote', async (req, res) => {
     const { bvid, title, userId } = req.body;
     if (!bvid || !userId) {
         return res.status(400).json({ success: false, message: 'Missing bvid or userId' });
     }
 
-    let data = readData();
+    let data = await getDB();
     
     // 如果该视频还没记录，初始化它
     if (!data[bvid]) {
@@ -65,14 +69,14 @@ app.post('/api/vote', (req, res) => {
         active = true;
     }
 
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    await setDB(data);
     res.json({ success: true, active });
 });
 
 // 获取用户对特定视频的状态及总计数
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
     const { bvid, userId } = req.query;
-    const data = readData();
+    const data = await getDB();
     
     const videoData = data[bvid] || { votes: {} };
     const isVoted = videoData.votes[userId];
@@ -82,9 +86,9 @@ app.get('/api/status', (req, res) => {
 });
 
 // 获取排行榜
-app.get('/api/leaderboard', (req, res) => {
+app.get('/api/leaderboard', async (req, res) => {
     const range = req.query.range || 'daily';
-    const data = readData();
+    const data = await getDB();
     
     let startTime;
     if (range === 'daily') {
