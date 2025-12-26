@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchLeaderboard(range = 'daily') {
         leaderboard.innerHTML = '<div class="loading">加载中...</div>';
         try {
-            const response = await fetch(`http://localhost:3000/api/leaderboard?range=${range}`);
+            const response = await fetch(`https://bili-qml.vercel.app/leaderboard?range=${range}`);
             const data = await response.json();
             
             if (data.success && data.list.length > 0) {

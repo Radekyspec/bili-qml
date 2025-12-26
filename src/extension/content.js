@@ -56,7 +56,7 @@ async function syncButtonState() {
     const userId = await getUserId();
     
     try {
-        const statusRes = await fetch(`http://localhost:3000/api/status?bvid=${bvid}&userId=${userId}`);
+        const statusRes = await fetch(`https://bili-qml.vercel.app/status?bvid=${bvid}&userId=${userId}`);
         const statusData = await statusRes.json();
         
         // 更新按钮激活状态
@@ -144,7 +144,7 @@ async function injectQuestionButton() {
 
         try {
             qBtn.style.pointerEvents = 'none';
-            const response = await fetch('http://localhost:3000/api/vote', {
+            const response = await fetch('https://bili-qml.vercel.app/vote', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

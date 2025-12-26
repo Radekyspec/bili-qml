@@ -8,7 +8,7 @@
   ],
   "host_permissions": [
     "https://*.bilibili.com/*",
-    "http://localhost:3000/*"
+    "https://bili-qml.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html"
