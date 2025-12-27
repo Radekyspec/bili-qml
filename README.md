@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/extension/icons/icon128.png" width="100" height="100" alt="Bilibili Q-Mark List Logo">
+  <img src="src/extension/icons/button-icon.png" width="100" height="100" alt="Bilibili Q-Mark List Logo">
 </p>
 
 <h1 align="center">B站问号榜 (Bilibili Question-Mark Leaderboard) ❓</h1>
