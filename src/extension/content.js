@@ -165,6 +165,109 @@ function formatCount(num) {
     return num.toString();
 }
 
+// 模拟发送弹幕功能
+function sendDanmaku(text) {
+    console.log('%c[B站问号榜] 🚀 开始执行弹幕发送流程...', 'color: #00a1d6; font-weight: bold;');
+    
+    // 创建一个临时的可视化提示浮层（显示在网页左上角，方便用户直接看到）
+    const showNotice = (msg, isError = false) => {
+        const notice = document.createElement('div');
+        notice.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 20px; border-radius: 4px; z-index: 100000;
+            background: ${isError ? '#ff4d4f' : '#00a1d6'}; color: white;
+            font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: opacity 0.5s;
+        `;
+        notice.innerText = `[问号榜提示] ${msg}`;
+        document.body.appendChild(notice);
+        setTimeout(() => {
+            notice.style.opacity = '0';
+            setTimeout(() => notice.remove(), 500);
+        }, 2000);
+    };
+
+    try {
+        const dmInput = document.querySelector('input.bpx-player-dm-input');
+        const dmSendBtn = document.querySelector('.bpx-player-dm-btn-send');
+
+        if (!dmInput) {
+            console.error('[B站问号榜] ❌ 失败：找不到输入框 input.bpx-player-dm-input');
+            showNotice('找不到弹幕输入框，请确认弹幕开关已打开', true);
+            return;
+        }
+        if (!dmSendBtn) {
+            console.error('[B站问号榜] ❌ 失败：找不到发送按钮 .bpx-player-dm-btn-send');
+            showNotice('找不到发送按钮', true);
+            return;
+        }
+
+        console.log('[B站问号榜] ✅ 找到元素，准备填入内容...');
+        dmInput.focus();
+        dmInput.click();
+        
+        // 执行插入
+        const insertSuccess = document.execCommand('insertText', false, text);
+        console.log('[B站问号榜] 执行 insertText 结果:', insertSuccess);
+        
+        dmInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('[B站问号榜] 当前输入框值:', dmInput.value);
+
+        if (dmInput.value !== text) {
+            console.warn('[B站问号榜] ⚠️ 警告：输入框内容未改变，React 状态可能被拦截');
+        }
+
+        setTimeout(() => {
+            console.log('[B站问号榜] 正在模拟按下回车键...');
+            const enterEvent = new KeyboardEvent('keydown', {
+                bubbles: true, cancelable: true, key: 'Enter', keyCode: 13
+            });
+            dmInput.dispatchEvent(enterEvent);
+
+            setTimeout(() => {
+                // 检查内容是否消失（消失代表发送成功）
+                if (dmInput.value === '') {
+                    console.log('%c[B站问号榜] 🎉 发送成功！(输入框已清空)', 'color: #52c41a; font-weight: bold;');
+                    showNotice('弹幕“？”同步发送成功！');
+                } else {
+                    console.log('[B站问号榜] 尝试手动点击发送按钮补刀...');
+                    
+                    // 深度模拟点击：先触发 mousedown，再触发 click
+                    dmSendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                    dmSendBtn.click();
+                    
+                    setTimeout(() => {
+                        if (dmInput.value === '') {
+                            console.log('%c[B站问号榜] 🎉 发送成功！(手动点击生效)', 'color: #52c41a; font-weight: bold;');
+                            showNotice('弹幕“？”同步发送成功！');
+                        } else {
+                            // 如果还是没发出去，尝试最后的大招：直接在输入框按一下回车键的 keyup
+                            const upEvent = new KeyboardEvent('keyup', {
+                                bubbles: true, cancelable: true, key: 'Enter', keyCode: 13
+                            });
+                            dmInput.dispatchEvent(upEvent);
+                            
+                            setTimeout(() => {
+                                if (dmInput.value === '') {
+                                    showNotice('弹幕“？”同步发送成功！');
+                                } else {
+                                    console.error('[B站问号榜] ❌ 最终发送失败：内容仍残留在输入框');
+                                    showNotice('弹幕发送失败，请手动检查弹幕栏', true);
+                                }
+                            }, 200);
+                        }
+                    }, 500);
+                }
+                dmInput.blur();
+            }, 500);
+        }, 300);
+
+    } catch (e) {
+        console.error('[B站问号榜] 💥 程序运行崩溃:', e);
+        showNotice('程序运行异常: ' + e.message, true);
+    }
+}
+
 async function injectQuestionButton() {
     try {
         const bvid = getBvid();
@@ -227,8 +330,20 @@ async function injectQuestionButton() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ bvid: activeBvid, title, userId })
                     });
-                    if ((await response.json()).success) syncButtonState();
-                } catch (err) {} finally { 
+                    
+                    const resData = await response.json();
+                    if (resData.success) {
+                        syncButtonState();
+                        // 只有当点亮（active 为 true）时才发弹幕
+                        if (resData.active) {
+                            sendDanmaku('？');
+                        }
+                    } else {
+                        alert('投票失败: ' + (resData.error || '未知错误'));
+                    }
+                } catch (err) {
+                    console.error('[B站问号榜] 投票请求异常:', err);
+                } finally { 
                     qBtn.style.pointerEvents = 'auto'; 
                     qBtn.style.opacity = '1';
                 }
