@@ -1,3 +1,26 @@
+# 依赖
+node_modules/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 编译产物
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 其他项目文件
+
 src/bili-qml.crx
 src/bili-qml.pem
 src/bili-qml-1.0.zip

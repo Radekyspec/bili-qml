@@ -43,8 +43,24 @@ async function setDB(data) {
     }
 }
 
-app.use(cors());
+app.use(cors({
+    origin: ['https://www.bilibili.com', 'chrome-extension://*'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(bodyParser.json());
+
+// 安全中间件：检查请求头，增加简单的防刷逻辑
+const securityCheck = (req, res, next) => {
+    const origin = req.headers.origin;
+    const userAgent = req.headers['user-agent'];
+    
+    // 简单的防爬虫逻辑
+    if (!userAgent || userAgent.includes('axios') || userAgent.includes('node-fetch')) {
+        return res.status(403).json({ success: false, error: 'Access Denied' });
+    }
+    next();
+};
 
 // 禁用所有 API 的缓存
 app.use((req, res, next) => {

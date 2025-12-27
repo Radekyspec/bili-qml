@@ -163,14 +163,14 @@ function formatCount(num) {
 function sendDanmaku(text) {
     console.log('%c[B站问号榜] 🚀 开始执行弹幕发送流程...', 'color: #00a1d6; font-weight: bold;');
     
-    // 创建一个临时的可视化提示浮层（显示在网页左上角，方便用户直接看到）
+    // 创建一个临时的可视化提示浮层（仅用于错误提示）
     const showNotice = (msg, isError = false) => {
-        /* 调试用：发布版已注释
+        if (!isError) return; // 正常情况下不显示提示
         const notice = document.createElement('div');
         notice.style.cssText = `
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
             padding: 10px 20px; border-radius: 4px; z-index: 100000;
-            background: ${isError ? '#ff4d4f' : '#00a1d6'}; color: white;
+            background: #ff4d4f; color: white;
             font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             transition: opacity 0.5s;
         `;
@@ -179,8 +179,7 @@ function sendDanmaku(text) {
         setTimeout(() => {
             notice.style.opacity = '0';
             setTimeout(() => notice.remove(), 500);
-        }, 2000);
-        */
+        }, 3000);
     };
 
     try {
