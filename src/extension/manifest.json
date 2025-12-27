@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "B站问号榜",
   "version": "1.0",
-  "description": "在B站视频下方增加问号按钮，统计并展示困惑视频排行榜。",
+  "description": "在B站视频下方增加问号键，统计并展示抽象视频排行榜。",
   "permissions": [
     "storage"
   ],
