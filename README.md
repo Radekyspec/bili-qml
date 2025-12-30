@@ -25,6 +25,7 @@
 ## 快速开始
 
 ### 方法 1：使用 CRX 文件安装 (最简单)
+**该方法暂时无法使用，需等待chrome应用商店审核通过**
 1.  **下载文件**：在crxs文件夹当中下载最新版本的 `.crx` 后缀文件。
 2.  **进入管理页面**：在浏览器地址栏输入 `chrome://extensions/` 并回车。
 3.  **开启开发者模式**：确保页面右上角的 **`开发者模式`** 开关已打开。
@@ -70,8 +71,7 @@ A browser extension that adds a "Question Mark" button to Bilibili video toolbar
 
 ---
 
-
-## 🛠 技术栈
+## 🛠 技术栈 (Tech Stack)
 
 -   **Frontend**: HTML, CSS (Bilibili Style), JavaScript (Chrome Extension API)
 -   **Backend**: Node.js (Express)
@@ -88,4 +88,11 @@ A browser extension that adds a "Question Mark" button to Bilibili video toolbar
 
 ---
 
-**声明**：本插件仅供学习交流使用，不涉及任何账号密码收集，所有点亮记录均为公开统计。
+## 🔒 隐私政策 (Privacy Policy)
+
+本插件极其重视用户隐私，在上架 Chrome 应用商店前已通过严格的安全自查：
+
+1.  **信息收集**：本插件仅提取 B 站公开的 `DedeUserID` (UID) 作为点亮问号的唯一识别符。我们**不收集**、**不读取**、**不传输**您的 B 站账号密码、SESSDATA 等任何敏感登录凭证。
+2.  **数据用途**：收集的 UID 仅用于统计视频的问号数值、同步您的点亮状态以及生成排行榜，不会用于任何商业用途。
+3.  **权限声明**：插件申请的 `cookies` 权限仅用于读取登录状态，申请的域名访问权限仅限于 `bilibili.com` 和插件后端 API。
+4.  **第三方共享**：我们承诺不会将任何用户数据共享给第三方。

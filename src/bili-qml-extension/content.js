@@ -127,8 +127,6 @@ async function syncButtonState() {
         const statusRes = await fetch(`${API_BASE}/status?bvid=${bvid}&userId=${userId || ''}&_t=${Date.now()}`);
         const statusData = await statusRes.json();
         
-        console.log(`[B站问号榜] 状态同步 | BVID: ${bvid} | UserID: ${userId} | 已点亮: ${statusData.active}`);
-        
         currentBvid = bvid;
         lastSyncedUserId = userId;
         
@@ -164,9 +162,7 @@ function formatCount(num) {
 
 // 模拟发送弹幕功能
 function sendDanmaku(text) {
-    console.log('%c[B站问号榜] 🚀 开始执行弹幕发送流程...', 'color: #00a1d6; font-weight: bold;');
-    
-    // 创建一个临时的可视化提示浮层（仅用于错误提示）
+    // 1. 寻找弹幕输入框和发送按钮
     const showNotice = (msg, isError = false) => {
         if (!isError) return; // 正常情况下不显示提示
         const notice = document.createElement('div');
