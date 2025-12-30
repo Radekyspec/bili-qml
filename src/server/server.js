@@ -163,7 +163,7 @@ app.get(['/api/leaderboard', '/leaderboard'], async (req, res) => {
         }
     }
 
-    const sortedList = list.sort((a, b) => b.count - a.count).slice(0, 10);
+    const sortedList = list.sort((a, b) => b.count - a.count).slice(0, 5);
     res.json({ success: true, list: sortedList });
 });
 
