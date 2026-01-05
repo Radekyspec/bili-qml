@@ -43,6 +43,7 @@
 ## TODO
 
 - [x] debug-1: 修改下滑时图标未合理隐藏的问题
+- [x] debug-2: 修改同时唤起转发小窗的问题 感谢B站用户 @[Logmeinu]指出问题
 
 - [x] support-1: 上架Chrome应用商店
 - [ ] support-2: 支持 Firefox

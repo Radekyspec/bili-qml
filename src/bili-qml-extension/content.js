@@ -4,6 +4,7 @@ const API_BASE = 'https://www.bili-qml.top/api';
 // 注入 B 站风格的 CSS
 const style = document.createElement('style');
 style.innerHTML = `
+    /* 问号键样式 */
     #bili-qmr-btn {
         position: absolute;
         display: flex;
@@ -17,9 +18,10 @@ style.innerHTML = `
         cursor: pointer;
         user-select: none;
         transition: color .3s, opacity .3s;
-        /* 关键：相对于父容器定位，不占位 */
-        left: 100%; 
-        margin-left: 12px;
+        z-index: 10;
+        pointer-events: auto;
+        /* 默认定位：先放在一个安全的位置，后续靠 JS 微调 */
+        right: -100px; 
         top: 0;
     }
     #bili-qmr-btn .qmr-icon-wrap {
@@ -224,20 +226,14 @@ async function injectQuestionButton() {
         const bvid = getBvid();
         if (!bvid) return;
 
-        // 1. 寻找精准参考位置：锁定转发按钮 (share)
-        let anchor = document.querySelector('.video-toolbar-left-item.share') || 
-                     document.querySelector('.video-share') || 
-                     document.querySelector('.share-info');
-
-        // 如果找不到分享按钮，再找左侧工具栏容器
+        // 1. 寻找工具栏左侧容器作为真正的父壳子
         const toolbarLeft = document.querySelector('.video-toolbar-left') || 
                            document.querySelector('.toolbar-left');
-
-        if (!anchor && toolbarLeft) {
-            anchor = toolbarLeft.lastElementChild;
-        }
-
-        if (!anchor) return;
+        const shareBtn = document.querySelector('.video-toolbar-left-item.share') || 
+                         document.querySelector('.video-share') || 
+                         document.querySelector('.share-info');
+        
+        if (!toolbarLeft || !shareBtn) return;
 
         let qBtn = document.getElementById('bili-qmr-btn');
         
@@ -248,7 +244,6 @@ async function injectQuestionButton() {
             
             qBtn = document.createElement('div');
             qBtn.id = 'bili-qmr-btn';
-            qBtn.style.pointerEvents = 'auto';
             const iconUrl = chrome.runtime.getURL('icons/button-icon.png');
             qBtn.innerHTML = `
                 <div class="qmr-icon-wrap">
@@ -257,13 +252,34 @@ async function injectQuestionButton() {
                 </div>
             `;
             
-            // 关键：将父元素设为相对定位，作为我们的定位基准
-            anchor.style.position = 'relative';
-            anchor.appendChild(qBtn);
-            
+            // 关键：挂载到 toolbarLeft，确保它和分享按钮是“远房亲戚”，互不干扰悬停
+            toolbarLeft.style.position = 'relative'; // 确保父容器有定位基准
+            toolbarLeft.appendChild(qBtn);
+
+            // 定位同步函数
+            const syncPos = () => {
+                if (!qBtn || !shareBtn || !toolbarLeft) return;
+                const sRect = shareBtn.getBoundingClientRect();
+                const pRect = toolbarLeft.getBoundingClientRect();
+                // 计算相对于 toolbarLeft 的偏移量
+                qBtn.style.left = (sRect.right - pRect.left + 12) + 'px';
+                qBtn.style.top = (sRect.top - pRect.top + (sRect.height - 28) / 2) + 'px';
+            };
+
+            // 立即同步并开启监听
+            syncPos();
+            const posTimer = setInterval(syncPos, 500); // 较低频率的兜底同步
+            window.addEventListener('resize', syncPos);
+            document.addEventListener('fullscreenchange', () => setTimeout(syncPos, 200));
+
+            // 拦截悬停事件，双重保险
+            ['mouseenter', 'mouseover'].forEach(type => {
+                qBtn.addEventListener(type, (e) => e.stopPropagation());
+            });
+
             qBtn.onclick = async (e) => {
                 e.preventDefault();
-                e.stopPropagation();
+                e.stopPropagation(); // 依然保留，防止点击事件向上冒泡干扰 B 站
 
                 // 只有登录用户才能投票
                 if (!document.cookie.includes('DedeUserID')) {
