@@ -53,14 +53,19 @@ app.use(bodyParser.json());
 // 安全中间件：检查请求头，增加简单的防刷逻辑
 const securityCheck = (req, res, next) => {
     const userAgent = req.headers['user-agent'] || '';
+    const apiKey = req.headers['x-api-key']; // 只有我们的插件知道这个 Key
     
-    // 拦截非浏览器、常见脚本工具、以及没有 UA 的请求
+    // 拦截没有正确 Key 的请求
+    if (apiKey !== process.env.VOTE_API_KEY) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid API Key' });
+    }
+    
+    // 拦截非浏览器、常见脚本工具
     const isBot = !userAgent || 
                   userAgent.includes('curl') || 
                   userAgent.includes('python') || 
                   userAgent.includes('axios') || 
-                  userAgent.includes('node-fetch') ||
-                  userAgent.includes('Postman');
+                  userAgent.includes('node-fetch');
 
     if (isBot) {
         return res.status(403).json({ success: false, error: 'Access Denied: Bot detected' });
