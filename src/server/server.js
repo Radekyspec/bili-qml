@@ -1,24 +1,23 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const moment = require('moment');
-const {Redis} = require('@upstash/redis');
+const { Redis } = require('@upstash/redis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const TIMESTAMP_EXPIRE_MS=Number(process.env.TIMESTAMP_EXPIRE_MS) || 30 * 24 * 3600 * 1000; //排行榜总数据过期时间
-const CACHE_EXPIRE_MS=Number(process.env.CACHE_EXPIRE_MS) || 300 * 1000; // 排行榜cache过期时间
-const leaderboardTimeInterval=[12 * 3600 * 1000,24 * 3600 * 1000,7* 24 * 3600 * 1000,30 * 24 * 3600 * 1000]; //排行榜相差时间
+const TIMESTAMP_EXPIRE_MS = Number(process.env.TIMESTAMP_EXPIRE_MS) || 30 * 24 * 3600 * 1000; //排行榜总数据过期时间
+const CACHE_EXPIRE_MS = Number(process.env.CACHE_EXPIRE_MS) || 300 * 1000; // 排行榜cache过期时间
+const leaderboardTimeInterval = [12 * 3600 * 1000, 24 * 3600 * 1000, 7 * 24 * 3600 * 1000, 30 * 24 * 3600 * 1000]; //排行榜相差时间
 
-var leaderBoardCache={
-    caches:[],
-    expireTime:0
+var leaderBoardCache = {
+    caches: [],
+    expireTime: 0
 };
 
 const redis = Redis.fromEnv();
 
-async function getLeaderBoardFromTime(periodMs = 24 * 3600 * 1000, limit = 50){
+async function getLeaderBoardFromTime(periodMs = 24 * 3600 * 1000, limit = 50) {
     const now = Date.now();
     const minTime = now - periodMs;
     await redis.zremrangebyscore('votes:recent', '-inf', now - TIMESTAMP_EXPIRE_MS - 1);
@@ -34,16 +33,16 @@ async function getLeaderBoardFromTime(periodMs = 24 * 3600 * 1000, limit = 50){
     return sorted;
 }
 
-async function getLeaderBoard(range){
+async function getLeaderBoard(range) {
     const now = Date.now();
-    if(leaderBoardCache.expireTime<now){
-        var cache=[];
-        leaderBoardCache.expireTime=Date.now()+CACHE_EXPIRE_MS;
-        leaderBoardCache.caches=await Promise.all(leaderboardTimeInterval.map((time)=>{
+    if (leaderBoardCache.expireTime < now) {
+        var cache = [];
+        leaderBoardCache.expireTime = Date.now() + CACHE_EXPIRE_MS;
+        leaderBoardCache.caches = await Promise.all(leaderboardTimeInterval.map((time) => {
             return getLeaderBoardFromTime(time);
         }));
     }
-    switch(range){ //滑动窗口榜单 以UNIX时间戳计算
+    switch (range) { //滑动窗口榜单 以UNIX时间戳计算
         case "realtime":
             return leaderBoardCache.caches[0];
             break;
@@ -150,8 +149,8 @@ app.post(['/api/vote', '/vote'], async (req, res) => {
         await redis.hincrby(`video:${bvid}`, 'votesTotal', 1);
         // 排行榜时间戳记录
         const now = Date.now();
-        await redis.zadd('votes:recent',{score: now,member: `${bvid}:${userId}`});
-        res.json({ success: true});
+        await redis.zadd('votes:recent', { score: now, member: `${bvid}:${userId}` });
+        res.json({ success: true });
     } catch (error) {
         console.error('Vote Error:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -171,7 +170,7 @@ app.post(['/api/unvote', '/unvote'], async (req, res) => {
         await redis.srem(`voted:${bvid}`, userId);           // 删除投票记录
         await redis.zrem('votes:recent', `${bvid}:${userId}`); // 删除排行榜记录
         await redis.hincrby(`video:${bvid}`, 'votesTotal', -1);
-        res.json({ success: true});
+        res.json({ success: true });
     } catch (error) {
         console.error('Vote Error:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -181,23 +180,23 @@ app.post(['/api/unvote', '/unvote'], async (req, res) => {
 // 获取状态
 app.get(['/api/status', '/status'], async (req, res) => {
     const { bvid, userId } = req.query;
-    try{
-    const isVoted = (await redis.sismember(`voted:${bvid}`, userId))===1?true:false;
-    const totalCount = await redis.hget(`video:${bvid}`, 'votesTotal');
-    }catch(error){
+    try {
+        const isVoted = (await redis.sismember(`voted:${bvid}`, userId)) === 1 ? true : false;
+        const totalCount = await redis.hget(`video:${bvid}`, 'votesTotal');
+        res.json({ success: true, active: !!isVoted, count: totalCount });
+    } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
-    res.json({ success: true, active: !!isVoted, count: totalCount });
 });
 
 // 获取排行榜
 app.get(['/api/leaderboard', '/leaderboard'], async (req, res) => {
     const range = req.query.range || 'realtime';
-    try{
-    const board=await getLeaderBoard(range);
-    const list=board.map((array) => {return {bvid: array[0],count: array[1]}});
-    res.json({ success: true, list: list});
-    }catch(error){
+    try {
+        const board = await getLeaderBoard(range);
+        const list = board.map((array) => { return { bvid: array[0], count: array[1] } });
+        res.json({ success: true, list: list });
+    } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
